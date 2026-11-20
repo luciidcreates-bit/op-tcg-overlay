@@ -1,0 +1,32 @@
+# Refreshes the TCGplayer price snapshots for brand-new sets once a day.
+# TCGCSV updates around 20:00 UTC, so this runs a little after.
+name: Refresh new-set prices
+
+on:
+  schedule:
+    - cron: "30 21 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python tools/build_data.py
+      - name: Commit if anything changed
+        run: |
+          git add data
+          if git diff --cached --quiet; then
+            echo "No price changes."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "Refresh new-set TCGplayer prices"
+            git push
+          fi

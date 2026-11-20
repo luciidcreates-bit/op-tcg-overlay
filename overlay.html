@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OP TCG Chase Overlay</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<!--
+  OBS Browser Source. Build your link with index.html. Link options:
+    ?set=OP-18     which set
+    &top=10        how many cards rotate
+    &rotate=3      seconds per card
+    &min=0         skip cards cheaper than this
+    &hide=ID,ID    cards removed from the rotation
+    &layout=bar    compact horizontal strip (760×140) instead of the card (380×500)
+    &scale=1.25    scale everything up/down
+-->
+<style>
+  :root {
+    --navy: #0a1430;
+    --navy-2: #12204a;
+    --ink: #f4f1ea;
+    --muted: #9aa6c8;
+    --gold: #e8b64c;
+    --red: #d7263d;
+    --line: rgba(232, 182, 76, .28);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: transparent; overflow: hidden; }
+  body {
+    font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+    color: var(--ink);
+    padding: 12px;
+    -webkit-font-smoothing: antialiased;
+  }
+  #root { transform-origin: top left; display: inline-block; position: relative; }
+  .hidden { display: none !important; }
+  .num { font-family: "Anton", Impact, sans-serif; letter-spacing: .5px; font-variant-numeric: tabular-nums; }
+
+  .panel {
+    position: relative;
+    background:
+      radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--c, #e8b64c) 22%, transparent), transparent 60%),
+      linear-gradient(170deg, var(--navy-2), var(--navy) 70%);
+    border: 2px solid var(--gold);
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.04);
+    overflow: hidden;
+    transition: background .6s;
+  }
+  .head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(90deg, rgba(232,182,76,.14), transparent);
+  }
+  .tag {
+    font-family: "Anton", Impact, sans-serif; font-size: 13px; letter-spacing: 1.5px;
+    background: var(--red); color: #fff; padding: 3px 8px 2px; border-radius: 4px; transform: skew(-8deg);
+    white-space: nowrap; flex: none;
+  }
+  .set { min-width: 0; line-height: 1.05; }
+  .set b { display: block; font-family: "Anton", Impact, sans-serif; font-weight: 400; font-size: 15px; letter-spacing: 1px; color: var(--gold); }
+  .set span { display: block; font-weight: 700; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ---------- card layout ---------- */
+  .card { width: 340px; }
+  .body { padding: 16px 16px 14px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .card .info { display: flex; flex-direction: column; align-items: center; width: 100%; }
+  .card .foot { width: 100%; padding: 14px 0 0; }
+  .stage { position: relative; width: 250px; aspect-ratio: 600 / 838; perspective: 900px; }
+  .placeholder {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 16px;
+    background:
+      repeating-linear-gradient(135deg, color-mix(in srgb, var(--c) 16%, transparent) 0 10px, transparent 10px 20px),
+      radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--c) 45%, var(--navy)), var(--navy) 80%) !important;
+  }
+  .placeholder .pt { font-family: "Anton", Impact, sans-serif; font-size: 15px; letter-spacing: 2px; color: #0a1430; background: var(--c); padding: 3px 10px 2px; border-radius: 5px; }
+  .placeholder .pn { font-family: "Anton", Impact, sans-serif; font-size: 30px; line-height: 1.05; color: var(--ink); text-shadow: 0 3px 0 rgba(0,0,0,.5); }
+  .placeholder .pc { font-size: 15px; letter-spacing: 1px; color: var(--muted); }
+  .bar .placeholder { padding: 4px; gap: 3px; }
+  .bar .placeholder .pt { font-size: 8px; letter-spacing: .5px; padding: 1px 3px; }
+  .bar .placeholder .pn { font-size: 11px; }
+  .bar .placeholder .pc { display: none; }
+  .cardimg {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 10px;
+    box-shadow: 0 10px 24px rgba(0,0,0,.55), 0 0 28px color-mix(in srgb, var(--c, #e8b64c) 60%, transparent);
+    outline: 2px solid var(--c, var(--gold)); outline-offset: -1px;
+    background: color-mix(in srgb, var(--c, #e8b64c) 25%, var(--navy));
+  }
+  .shine { position: absolute; inset: 0; border-radius: 10px; overflow: hidden; pointer-events: none; }
+  .shine::after {
+    content: ""; position: absolute; top: -20%; bottom: -20%; width: 40%; left: -60%;
+    background: linear-gradient(100deg, transparent, rgba(255,255,255,.28), transparent);
+    transform: skewX(-12deg);
+  }
+  .shine.go::after { animation: shine 1.4s .35s ease-out; }
+  @keyframes shine { to { left: 130%; } }
+  .flipin { animation: flipin .65s cubic-bezier(.2, .9, .3, 1.15); }
+  @keyframes flipin { from { transform: rotateY(-100deg) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+  .rank {
+    position: absolute; top: -10px; left: -12px; z-index: 2;
+    font-family: "Anton", Impact, sans-serif; font-size: 24px; line-height: 1; letter-spacing: .5px;
+    background: var(--red); color: #fff; padding: 6px 10px 4px; border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.5); transform: rotate(-6deg);
+  }
+  .chip {
+    font-family: "Anton", Impact, sans-serif; font-size: 14px; letter-spacing: 1.4px;
+    padding: 3px 10px 2px; border-radius: 5px; color: #0a1430; background: var(--c);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--c) 50%, transparent); margin-top: 14px;
+  }
+  .cname { font-size: 26px; font-weight: 700; line-height: 1.05; margin-top: 8px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ccode { font-size: 14px; color: var(--muted); letter-spacing: .8px; margin-top: 2px; }
+  .pricerow { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; }
+  .cprice { font-size: 50px; line-height: 1; color: var(--gold); text-shadow: 0 3px 0 rgba(0,0,0,.45), 0 0 24px rgba(232,182,76,.35); }
+  .trend { display: flex; flex-direction: column; align-items: center; line-height: 1; --t: #36d77a; }
+  .trend.down { --t: #ff4d5e; }
+  .trend .arrow { width: 0; height: 0; border-left: 13px solid transparent; border-right: 13px solid transparent; border-bottom: 18px solid var(--t); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--t) 70%, transparent)); }
+  .trend.down .arrow { border-bottom: 0; border-top: 18px solid var(--t); }
+  .trend .pct { font-family: "Anton", Impact, sans-serif; font-size: 15px; letter-spacing: .5px; color: var(--t); margin-top: 4px; text-shadow: 0 2px 0 rgba(0,0,0,.5); }
+  .trend.pop { animation: trendPop .6s .25s cubic-bezier(.2, 1.6, .4, 1) both; }
+  @keyframes trendPop { from { transform: translateY(6px) scale(.5); opacity: 0; } to { transform: none; opacity: 1; } }
+  .cpk { font-size: 12px; font-weight: 700; letter-spacing: 1.6px; color: var(--muted); text-transform: uppercase; margin-top: 4px; }
+  .cprice.pop { animation: pricePop .5s cubic-bezier(.2, 1.6, .4, 1); }
+  @keyframes pricePop { from { transform: scale(.7); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  .progress { height: 4px; border-radius: 2px; background: rgba(154,166,200,.18); overflow: hidden; }
+  .progress i { display: block; height: 100%; background: var(--c, var(--gold)); transform-origin: left; transform: scaleX(0); }
+  .progress i.run { animation: prog var(--dur) linear forwards; }
+  @keyframes prog { to { transform: scaleX(1); } }
+  .empty { padding: 30px 16px; text-align: center; color: var(--muted); font-size: 18px; }
+
+  /* ---------- bar layout ---------- */
+  .bar { width: 736px; height: 116px; display: grid; grid-template-columns: 200px 84px 1fr; }
+  .bar .head { flex-direction: column; align-items: flex-start; justify-content: center; border-bottom: 0; border-right: 1px solid var(--line); gap: 6px; }
+  .bar .set span { white-space: normal; font-size: 16px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .bar .body { display: contents; }
+  .bar .stage { width: 72px; margin: 8px 0 0 10px; align-self: start; }
+  .bar .cardimg { border-radius: 5px; }
+  .bar .rank { font-size: 15px; padding: 3px 6px 2px; top: -4px; left: -6px; border-radius: 5px; }
+  .bar .info { display: grid; grid-template-columns: auto 1fr auto; grid-template-rows: auto auto 1fr; column-gap: 12px; align-items: center; padding: 10px 16px 8px 10px; text-align: left; min-width: 0; }
+  .bar .chip { margin: 0; grid-row: 1; grid-column: 1; font-size: 12px; }
+  .bar .ccode { grid-row: 1; grid-column: 2; margin: 0; }
+  .bar .pricerow { grid-row: 1 / 3; grid-column: 3; margin: 0; justify-content: flex-end; }
+  .bar .cprice { font-size: 40px; }
+  .bar .cname { grid-row: 2; grid-column: 1 / 3; font-size: 24px; margin: 4px 0 0; }
+  .bar .cpk { display: none; }
+  .bar .foot { grid-row: 3; grid-column: 1 / -1; padding: 0; align-self: end; }
+  .bar .empty { grid-column: 2 / -1; padding: 0; align-self: center; }
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="panel" class="panel card">
+    <div class="head"><span class="tag">CHASE CARDS</span><div class="set"><b id="setId"></b><span id="setName">Loading…</span></div></div>
+    <div class="body" id="body">
+      <div class="stage" id="stageWrap"><div id="stage"></div><div class="shine" id="shine"></div><span class="rank" id="rank"></span></div>
+      <div class="info">
+        <span class="chip" id="chip"></span>
+        <div class="cname" id="cname"></div>
+        <div class="ccode" id="ccode"></div>
+        <div class="pricerow"><div class="cprice num" id="cprice"></div><div class="trend hidden" id="trend"><span class="arrow"></span><span class="pct"></span></div></div>
+        <div class="cpk" id="cpk">TCGplayer market</div>
+        <div class="foot">
+          <div class="progress"><i id="prog"></i></div>
+        </div>
+      </div>
+    </div>
+    <div class="empty hidden" id="empty">Loading cards…</div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+const S = OPC.readSettings();
+const REFRESH_MS = 3600e3;  // re-check prices hourly (data is cached in the browser for up to 6h)
+
+const $ = (id) => document.getElementById(id);
+$("panel").classList.replace("card", S.layout);
+$("root").style.transform = `scale(${S.scale})`;
+const money = OPC.money;
+let chase = [], idx = 0, timer = null, sig = "", idsSig = "";
+
+async function refresh() {
+  try {
+    const sets = await OPC.listSets().catch(() => []);
+    $("setId").textContent = S.set;
+    $("setName").textContent = sets.find((x) => x.id === S.set)?.name || "";
+    const { cards, source } = await OPC.setCards(S.set);
+    const picked = OPC.pickChase(cards, S, source === "spoiler");
+    // Price history only exists for sets on optcgapi.
+    const trends = await Promise.all(picked.map((c) => source === "optcgapi" ? OPC.trend(c).catch(() => null) : null));
+    apply(picked.map((c, i) => ({ ...c, trend: trends[i] })));
+  } catch (e) {
+    if (!chase.length) { $("empty").textContent = "Couldn't load cards. Retrying…"; $("empty").classList.remove("hidden"); }
+    setTimeout(refresh, 60e3);
+    return;
+  }
+  setTimeout(refresh, REFRESH_MS);
+}
+
+function apply(list) {
+  const newIds = list.map((c) => c.imageId).join(",");
+  const newSig = newIds + "|" + list.map((c) => `${c.price}:${c.trend?.pct ?? ""}`).join(",");
+  if (newSig === sig) return;
+  const sameCards = newIds === idsSig;
+  sig = newSig;
+  idsSig = newIds;
+  const current = chase[idx];
+  chase = list;
+  for (const c of chase) OPC.loadImage(new Image(), c.imageId);  // preload
+  $("body").classList.toggle("hidden", !chase.length);
+  $("empty").textContent = "No priced cards for this set yet.";
+  $("empty").classList.toggle("hidden", !!chase.length);
+  if (!chase.length) { clearTimeout(timer); return; }
+  if (sameCards && current) {
+    // Only prices changed: stay on the same card.
+    idx = Math.max(0, chase.findIndex((c) => c.imageId === current.imageId));
+    show(false);
+  } else {
+    idx = 0;
+    show(true);
+  }
+}
+
+function loop() {
+  clearTimeout(timer);
+  if (chase.length < 2) return;
+  timer = setTimeout(() => {
+    idx = (idx + 1) % chase.length;
+    show(true);
+  }, S.rotate * 1000);
+}
+
+async function show(animate) {
+  const c = chase[idx];
+  if (!c) return;
+  $("panel").style.setProperty("--c", c.color);
+  $("rank").textContent = "#" + (idx + 1);
+  $("chip").textContent = c.tag;
+  $("chip").style.setProperty("--c", c.color);
+  $("cname").textContent = c.name;
+  $("ccode").textContent = c.code;
+  // Brand-new sets have no market price yet.
+  $("cprice").textContent = c.price == null ? "TBD" : money(c.price);
+  $("cpk").textContent = c.price == null ? "Price not out yet" : "TCGplayer market";
+  // Green ▲ / red ▼ for the change over the last ~2 weeks; nothing if it's flat or unknown.
+  const t = c.trend, trend = $("trend");
+  trend.classList.toggle("hidden", !t || t.dir === "flat");
+  trend.classList.toggle("down", t?.dir === "down");
+  if (t) trend.querySelector(".pct").textContent = `${t.pct > 0 ? "+" : ""}${t.pct}%`;
+  trend.title = t ? `${t.days}-day change from ${money(t.from)}` : "";
+
+  const prog = $("prog");
+  prog.style.setProperty("--dur", S.rotate * 1000 + "ms");
+  prog.classList.remove("run"); void prog.offsetWidth;
+  if (chase.length > 1) prog.classList.add("run");
+  loop();
+
+  const img = new Image();
+  img.className = "cardimg";
+  img.alt = c.name;
+  let el = img;
+  if (!(await OPC.loadImage(img, c.imageId))) {
+    // No art online yet (e.g. brand-new sets): show a styled stand-in card.
+    el = document.createElement("div");
+    el.className = "cardimg placeholder";
+    el.innerHTML = `<span class="pt"></span><span class="pn"></span><span class="pc"></span>`;
+    el.querySelector(".pt").textContent = c.tag;
+    el.querySelector(".pn").textContent = c.name;
+    el.querySelector(".pc").textContent = c.code;
+  }
+  if (chase[idx] !== c) return;  // rotated on while the art was loading
+  $("stage").replaceChildren(el);
+  if (animate) {
+    el.classList.add("flipin");
+    const sh = $("shine"); sh.classList.remove("go"); void sh.offsetWidth; sh.classList.add("go");
+    const pr = $("cprice"); pr.classList.remove("pop"); void pr.offsetWidth; pr.classList.add("pop");
+    const tr = $("trend"); tr.classList.remove("pop"); void tr.offsetWidth; tr.classList.add("pop");
+  }
+}
+
+$("body").classList.add("hidden");
+$("empty").classList.remove("hidden");
+refresh();
+</script>
+</body>
+</html>

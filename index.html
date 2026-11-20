@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OP TCG Chase Cards</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Build a One Piece TCG chase card overlay link for OBS: a set's most valuable cards with TCGplayer prices.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070e22;
+    --navy: #0f1b3d;
+    --navy-2: #172656;
+    --ink: #f4f1ea;
+    --muted: #9aa6c8;
+    --gold: #e8b64c;
+    --red: #d7263d;
+    --line: rgba(154, 166, 200, .18);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: "Barlow", system-ui, sans-serif; font-size: 15px;
+    padding: 16px; min-height: 100vh;
+  }
+  h1, h2, .num { font-family: "Anton", Impact, sans-serif; letter-spacing: .5px; font-weight: 400; }
+  h1 { font-size: 22px; display: flex; align-items: center; gap: 10px; }
+  h1 .tag { background: var(--red); color: #fff; font-size: 12px; letter-spacing: 1.5px; padding: 3px 8px 2px; border-radius: 4px; transform: skew(-8deg); }
+  h2 { font-size: 13px; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+  h2 .spacer { flex: 1; }
+  .wrap { max-width: 1200px; margin: 0 auto; display: grid; gap: 14px; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
+  @media (max-width: 860px) { .wrap { grid-template-columns: 1fr; } }
+  header { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+  .status { font-size: 13px; color: var(--muted); }
+  .status.bad { color: #ff8b8b; }
+  section { background: var(--navy); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .col { display: grid; gap: 14px; align-content: start; }
+
+  button {
+    font: inherit; color: var(--ink); cursor: pointer;
+    background: var(--navy-2); border: 1px solid var(--line); border-radius: 9px;
+    padding: 8px 12px; transition: transform .06s, background .15s, border-color .15s;
+  }
+  button:hover { border-color: var(--gold); }
+  button:active { transform: scale(.97); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.small { font-size: 12px; padding: 4px 9px; border-radius: 7px; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  select, input[type=number] {
+    font: inherit; color: var(--ink); background: rgba(0,0,0,.25);
+    border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; width: 100%;
+  }
+  select { font-size: 17px; font-weight: 600; cursor: pointer; appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--gold) 50%), linear-gradient(135deg, var(--gold) 50%, transparent 50%);
+    background-position: calc(100% - 18px) 55%, calc(100% - 12px) 55%; background-size: 6px 6px; background-repeat: no-repeat; padding-right: 34px; }
+  select option { background: var(--navy); color: var(--ink); }
+  .setrow { display: flex; gap: 8px; align-items: center; }
+  .setrow select { flex: 1; }
+  .meta { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .meta.bad { color: #ff8b8b; }
+
+  .settings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  @media (max-width: 520px) { .settings { grid-template-columns: 1fr 1fr; } }
+  label.field { display: grid; gap: 5px; font-size: 12px; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+  .card {
+    position: relative; padding: 6px; border-radius: 10px; text-align: left;
+    display: grid; gap: 4px; align-content: start;
+  }
+  .card img { width: 100%; aspect-ratio: 600 / 838; object-fit: cover; border-radius: 6px; background: rgba(0,0,0,.3); display: block; }
+  .card .noart {
+    display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 600 / 838; border-radius: 6px;
+    font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); text-align: center;
+    background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--c) 14%, transparent) 0 8px, transparent 8px 16px), rgba(0,0,0,.3);
+  }
+  .card .n { font-size: 13px; font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .row { display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+  .card .p { font-family: "Anton", Impact, sans-serif; font-size: 16px; color: var(--gold); white-space: nowrap; }
+  .card .tr { font-size: 11px; margin-left: 4px; letter-spacing: .3px; }
+  .card .tr.up { color: #36d77a; }
+  .card .tr.down { color: #ff4d5e; }
+  .card .t { font-family: "Anton", Impact, sans-serif; font-size: 10px; letter-spacing: .8px; padding: 2px 5px 1px; border-radius: 4px; color: #0a1430; background: var(--c); white-space: nowrap; }
+  .card .id { font-family: ui-monospace, Menlo, monospace; font-size: 10px; color: var(--muted); }
+  .card .rank {
+    position: absolute; top: 10px; left: 10px; z-index: 1;
+    font-family: "Anton", Impact, sans-serif; font-size: 14px; letter-spacing: .5px;
+    background: var(--red); color: #fff; padding: 2px 7px 1px; border-radius: 5px; box-shadow: 0 2px 6px rgba(0,0,0,.5);
+  }
+  .card.on { border-color: color-mix(in srgb, var(--gold) 60%, transparent); }
+  .card.hid img { filter: grayscale(1) brightness(.45); }
+  .card.hid .n, .card.hid .p { opacity: .5; }
+  .card.hid::after {
+    content: "HIDDEN"; position: absolute; top: 34%; left: 50%; transform: translate(-50%, -50%) rotate(-12deg);
+    font-family: "Anton", Impact, sans-serif; letter-spacing: 2px; font-size: 16px; color: #ff8b8b;
+    border: 2px solid #ff8b8b; padding: 2px 8px 1px; border-radius: 5px; background: rgba(7,14,34,.7);
+  }
+  .divider { grid-column: 1 / -1; font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 10px; margin-top: 4px; }
+  .empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
+
+  .preview { background: repeating-conic-gradient(#1a2347 0 25%, #121a38 0 50%) 0 0 / 20px 20px; border-radius: 10px; overflow: hidden; }
+  .preview iframe { display: block; width: 100%; border: 0; }
+  .url { display: flex; gap: 8px; margin-top: 10px; }
+  .url input { font: 13px ui-monospace, Menlo, monospace; color: var(--ink); background: rgba(0,0,0,.25); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; width: 100%; }
+  .hint { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+  code { font-size: 12px; }
+
+  .layouts { display: flex; gap: 8px; margin-top: 10px; }
+  .layouts label { flex: 1; display: flex; gap: 8px; align-items: center; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font-size: 14px; }
+  .layouts label:has(input:checked) { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 10%, transparent); }
+  .layouts input { accent-color: var(--gold); }
+  .linkbox { background: color-mix(in srgb, var(--gold) 8%, var(--navy)); border-color: color-mix(in srgb, var(--gold) 45%, transparent); }
+  .linkbox .url input { font-size: 12px; }
+  #copy { background: var(--red); border-color: var(--red); color: #fff; font-weight: 600; white-space: nowrap; }
+  ol.steps { margin: 10px 0 0 18px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+  ol.steps b { color: var(--ink); font-weight: 600; }
+  .size { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="tag">ONE PIECE TCG</span>Chase Card Overlay</h1>
+    <span class="status" id="status">Loading…</span>
+  </header>
+
+  <div class="col">
+    <section>
+      <h2>1 · Pick a set</h2>
+      <div class="setrow">
+        <select id="set" aria-label="Set"><option>Loading sets…</option></select>
+        <button id="refresh" title="Re-fetch TCGplayer market prices for this set">Refresh prices</button>
+      </div>
+      <div class="meta" id="meta"></div>
+    </section>
+
+    <section>
+      <h2>2 · Rotation</h2>
+      <div class="settings">
+        <label class="field">Show top
+          <input type="number" id="top" min="1" max="60">
+        </label>
+        <label class="field">Seconds per card
+          <input type="number" id="rotate" min="1" max="60" step="0.5">
+        </label>
+        <label class="field">Min price ($)
+          <input type="number" id="min" min="0" step="1">
+        </label>
+      </div>
+      <div class="layouts" role="radiogroup" aria-label="Layout">
+        <label><input type="radio" name="layout" value="card"> Card (corner of screen)</label>
+        <label><input type="radio" name="layout" value="bar"> Bar (bottom strip)</label>
+      </div>
+    </section>
+
+    <section>
+      <h2>3 · Cards in this set <span class="spacer"></span><button class="small" id="unhide">Unhide all</button></h2>
+      <div class="grid" id="grid"></div>
+      <p class="hint">Sorted by TCGplayer market price. Numbered cards are in your rotation. Click a card to hide it from (or return it to) the rotation.</p>
+    </section>
+  </div>
+
+  <div class="col">
+    <section class="linkbox">
+      <h2>4 · Your overlay link</h2>
+      <div class="url">
+        <input type="text" id="url" readonly aria-label="Overlay link">
+        <button id="copy">Copy link</button>
+      </div>
+      <ol class="steps">
+        <li>In OBS: <b>Sources → + → Browser</b></li>
+        <li>Paste the link into <b>URL</b></li>
+        <li>Set the size to <span class="size" id="size">380 × 500</span></li>
+      </ol>
+      <p class="hint">Your settings live in the link. To change them later, come back to this page with the link below, adjust, and paste the new overlay link into OBS.</p>
+      <p class="hint"><a id="edit" href="#" style="color: var(--gold)">Link to edit these settings later</a></p>
+    </section>
+
+    <section>
+      <h2>Preview</h2>
+      <div class="preview"><iframe id="preview" title="Overlay preview"></iframe></div>
+      <p class="hint">Prices are TCGplayer market prices and refresh on their own every few hours. A green ▲ or red ▼ shows the price change over about two weeks. Card art carries Bandai's "SAMPLE" watermark.</p>
+    </section>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const S = OPC.readSettings();
+const money = OPC.money;
+let data = null;      // {cards, source, updated} for the current set
+let chaseIds = [];
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function setStatus(text, bad) { $("status").textContent = text; $("status").classList.toggle("bad", !!bad); }
+function ago(ts) {
+  const m = Math.round((Date.now() - ts) / 60e3);
+  if (m < 60) return m < 1 ? "just now" : `${m} min ago`;
+  const h = Math.round(m / 60);
+  return h < 24 ? `${h} hr ago` : `${Math.round(h / 24)} days ago`;
+}
+
+// Settings changed: update the link, this page's own address (so it can be bookmarked), and the preview.
+let previewTimer = null;
+function update({ cards = true } = {}) {
+  const qs = OPC.writeSettings(S);
+  const overlay = new URL("overlay.html?" + qs, location.href).href;
+  $("url").value = overlay;
+  $("edit").href = "?" + qs;
+  history.replaceState(null, "", "?" + qs);
+  $("size").textContent = S.layout === "bar" ? "760 × 140" : "380 × 500";
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(sizePreview, 300);
+  if (cards) renderCards();
+}
+
+function sizePreview() {
+  const w = $("preview").parentElement.clientWidth;
+  const native = S.layout === "bar" ? [784, 164] : [364, 524];
+  const scale = Math.min(1, (w - 8) / native[0]);
+  const src = "overlay.html?" + OPC.writeSettings({ ...S, scale: +(S.scale * scale).toFixed(2) });
+  if ($("preview").getAttribute("src") !== src) $("preview").src = src;
+  $("preview").style.height = Math.ceil(native[1] * scale) + "px";
+}
+
+async function renderCards() {
+  if (!data) return;
+  const spoiler = data.source === "spoiler";
+  const chase = OPC.pickChase(data.cards, S, spoiler);
+  chaseIds = chase.map((c) => c.imageId);
+  const rank = new Map(chaseIds.map((id, i) => [id, i + 1]));
+  const hidden = new Set(S.hide);
+  const shown = spoiler ? data.cards : data.cards.filter((c) => c.price);
+  const lastRanked = shown.findIndex((c) => c.imageId === chaseIds.at(-1));
+  $("meta").className = "meta";
+  $("meta").textContent = {
+    optcgapi: `${data.cards.length} cards · ${chase.length} in rotation · TCGplayer market prices · updated ${ago(data.updated)}`,
+    tcgplayer: `${data.cards.length} cards · ${chase.length} in rotation · TCGplayer market prices (new set, updated daily) · price arrows start once history builds up`,
+    spoiler: `${data.cards.length} versions from Bandai's spoiler list · no prices yet, ranked by rarity`,
+  }[data.source];
+  $("grid").innerHTML = shown.length
+    ? shown.map((c, i) => {
+        const r = rank.get(c.imageId);
+        const cls = ["card", r ? "on" : "", hidden.has(c.imageId) ? "hid" : ""].join(" ");
+        const divider = i === lastRanked + 1 && lastRanked >= 0 ? `<div class="divider">Not in rotation</div>` : "";
+        return `${divider}<button class="${cls}" data-id="${esc(c.imageId)}" style="--c:${c.color}" title="${esc(c.fullName)}">
+          ${r ? `<span class="rank">#${r}</span>` : ""}
+          <img alt="" loading="lazy" data-img="${esc(c.imageId)}">
+          <span class="n">${esc(c.name)}</span>
+          <span class="row"><span class="p" data-trend="${esc(c.imageId)}">${c.price == null ? "TBD" : money(c.price)}</span><span class="t">${esc(c.tag)}</span></span>
+          <span class="id">${esc(c.code)}</span>
+        </button>`;
+      }).join("")
+    : `<p class="empty">No priced cards in this set yet.</p>`;
+  for (const img of $("grid").querySelectorAll("img[data-img]")) {
+    OPC.loadImage(img, img.dataset.img).then((ok) => {
+      if (!ok) img.replaceWith(Object.assign(document.createElement("span"), { className: "noart", textContent: "No art yet" }));
+    });
+  }
+  // Price arrows for the cards in the rotation (price history only exists for sets on optcgapi).
+  for (const c of data.source === "optcgapi" ? chase : []) {
+    OPC.trend(c).then((t) => {
+      const el = $("grid").querySelector(`[data-trend="${CSS.escape(c.imageId)}"]`);
+      if (el && t && t.dir !== "flat") {
+        el.insertAdjacentHTML("beforeend", `<span class="tr ${t.dir}" title="${t.days}-day change from ${money(t.from)}">${t.dir === "up" ? "▲" : "▼"}${Math.abs(t.pct)}%</span>`);
+      }
+    }).catch(() => {});
+  }
+}
+
+async function loadSet({ force = false } = {}) {
+  $("meta").className = "meta";
+  $("meta").textContent = "Loading cards and prices…";
+  $("grid").innerHTML = "";
+  try {
+    data = await OPC.setCards(S.set, { force });
+    setStatus("Ready");
+  } catch (e) {
+    data = null;
+    $("meta").className = "meta bad";
+    $("meta").textContent = `Couldn't load ${S.set}: ${e.message}`;
+    setStatus("Card data unavailable", true);
+  }
+  update();
+}
+
+// ---------- controls ----------
+for (const k of ["top", "rotate", "min"]) {
+  $(k).value = S[k];
+  $(k).onchange = () => {
+    const v = parseFloat($(k).value);
+    if (Number.isFinite(v)) S[k] = k === "top" ? Math.max(1, Math.round(v)) : Math.max(k === "rotate" ? 1 : 0, v);
+    $(k).value = S[k];
+    update();
+  };
+}
+for (const r of document.querySelectorAll('input[name="layout"]')) {
+  r.checked = r.value === S.layout;
+  r.onchange = () => { S.layout = r.value; update({ cards: false }); };
+}
+$("set").onchange = () => { S.set = $("set").value; S.hide = []; loadSet(); };
+$("refresh").onclick = () => loadSet({ force: true });
+$("grid").onclick = (e) => {
+  const b = e.target.closest(".card");
+  if (!b) return;
+  const id = b.dataset.id;
+  S.hide = S.hide.includes(id) ? S.hide.filter((x) => x !== id) : [...S.hide, id];
+  update();
+};
+$("unhide").onclick = () => { S.hide = []; update(); };
+$("copy").onclick = async () => {
+  try { await navigator.clipboard.writeText($("url").value); } catch { $("url").select(); document.execCommand("copy"); }
+  $("copy").textContent = "Copied!";
+  setTimeout(() => ($("copy").textContent = "Copy link"), 1500);
+};
+addEventListener("resize", () => { clearTimeout(previewTimer); previewTimer = setTimeout(sizePreview, 200); });
+
+(async () => {
+  try {
+    const sets = await OPC.listSets();
+    if (!sets.some((x) => x.id === S.set)) sets.push({ id: S.set, name: "" });
+    $("set").innerHTML = sets.slice().reverse()
+      .map((x) => `<option value="${esc(x.id)}">${esc(x.id)}${x.name ? " · " + esc(x.name) : ""}</option>`).join("");
+    $("set").value = S.set;
+  } catch (e) {
+    setStatus("Couldn't load the set list: " + e.message, true);
+  }
+  loadSet();
+})();
+</script>
+</body>
+</html>
