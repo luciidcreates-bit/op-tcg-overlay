@@ -14,7 +14,7 @@
     &min=0         skip cards cheaper than this
     &hide=ID,ID    cards removed from the rotation
     &layout=bar    compact horizontal strip (760×140) instead of the card (380×500)
-    &scale=1.25    scale everything up/down
+    &scale=1.25    fixed size (by default it shrinks/grows to fit the OBS source: 380×650 card, 760×140 bar)
 -->
 <style>
   :root {
@@ -178,7 +178,17 @@ const REFRESH_MS = 3600e3;  // re-check prices hourly (data is cached in the bro
 
 const $ = (id) => document.getElementById(id);
 $("panel").classList.replace("card", S.layout);
-$("root").style.transform = `scale(${S.scale})`;
+// Fit the OBS source: shrink (or grow, up to 2x) so the whole overlay always shows, whatever
+// width/height the browser source is set to. An explicit &scale= in the link wins.
+const fixedScale = new URLSearchParams(location.search).has("scale") ? S.scale : null;
+function fit() {
+  const root = $("root");
+  const pad = 24;  // body padding, both sides
+  const auto = Math.min(innerWidth / (root.offsetWidth + pad), innerHeight / (root.offsetHeight + pad), 2);
+  root.style.transform = `scale(${fixedScale ?? Math.max(0.1, auto)})`;
+}
+new ResizeObserver(fit).observe($("root"));
+addEventListener("resize", fit);
 const money = OPC.money;
 let chase = [], idx = 0, timer = null, sig = "", idsSig = "";
 

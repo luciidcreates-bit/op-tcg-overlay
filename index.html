@@ -172,7 +172,7 @@
       <ol class="steps">
         <li>In OBS: <b>Sources → + → Browser</b></li>
         <li>Paste the link into <b>URL</b></li>
-        <li>Set the size to <span class="size" id="size">380 × 500</span></li>
+        <li>Set the size to <span class="size" id="size">380 × 650</span> (any size works; it shrinks to fit)</li>
       </ol>
       <p class="hint">Your settings live in the link. To change them later, come back to this page with the link below, adjust, and paste the new overlay link into OBS.</p>
       <p class="hint"><a id="edit" href="#" style="color: var(--gold)">Link to edit these settings later</a></p>
@@ -211,7 +211,7 @@ function update({ cards = true } = {}) {
   $("url").value = overlay;
   $("edit").href = "?" + qs;
   history.replaceState(null, "", "?" + qs);
-  $("size").textContent = S.layout === "bar" ? "760 × 140" : "380 × 500";
+  $("size").textContent = S.layout === "bar" ? "760 × 140" : "380 × 650";
   clearTimeout(previewTimer);
   previewTimer = setTimeout(sizePreview, 300);
   if (cards) renderCards();
@@ -219,7 +219,7 @@ function update({ cards = true } = {}) {
 
 function sizePreview() {
   const w = $("preview").parentElement.clientWidth;
-  const native = S.layout === "bar" ? [784, 164] : [364, 524];
+  const native = S.layout === "bar" ? [760, 140] : [364, 650];  // overlay's full size incl. margins
   const scale = Math.min(1, (w - 8) / native[0]);
   const src = "overlay.html?" + OPC.writeSettings({ ...S, scale: +(S.scale * scale).toFixed(2) });
   if ($("preview").getAttribute("src") !== src) $("preview").src = src;
